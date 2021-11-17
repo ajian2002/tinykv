@@ -21,6 +21,8 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
+//flag 包实现了命令行参数的解析。
+//flag.Xxx()，其中 Xxx 可以是 Int、String 等；返回一个相应类型的指针
 var (
 	schedulerAddr = flag.String("scheduler", "", "scheduler address")
 	storeAddr     = flag.String("addr", "", "store address")
@@ -31,6 +33,7 @@ var (
 func main() {
 	flag.Parse()
 	conf := config.NewDefaultConfig()
+	//一些默认配置
 	if *schedulerAddr != "" {
 		conf.SchedulerAddr = *schedulerAddr
 	}

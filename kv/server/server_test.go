@@ -330,13 +330,20 @@ func TestIterWithRawDelete1(t *testing.T) {
 	defer it.Close()
 	assert.Nil(t, err)
 
+	//for ; it.Valid(); it.Next() {
+	//	fmt.Printf("%v ", it.Item().Key())
+	//}
+	//fmt.Println()
 	delete := &kvrpcpb.RawDeleteRequest{
 		Key: []byte{3},
 		Cf:  cf,
 	}
 	_, err = server.RawDelete(nil, delete)
 	assert.Nil(t, err)
-
+	//for ; it.Valid(); it.Next() {
+	//	fmt.Printf("%v ", it.Item().Key())
+	//}
+	//fmt.Println("---")
 	expectedKeys := [][]byte{{1}, {2}, {3}, {4}}
 	i := 0
 	for it.Seek([]byte{1}); it.Valid(); it.Next() {

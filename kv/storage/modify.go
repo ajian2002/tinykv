@@ -1,8 +1,10 @@
 package storage
 
 // Modify is a single modification to TinyKV's underlying storage.
+// Modify 是对 TinyKV 底层存储的单一修改
 type Modify struct {
 	Data interface{}
+	//Data 值为Put 和 Delete 结构体
 }
 
 type Put struct {

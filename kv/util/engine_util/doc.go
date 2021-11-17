@@ -11,7 +11,7 @@ configured separately. Writes can be made atomic across column families, which c
 
 engine_util includes the following packages:
 
-* engines: a data structure for keeping engines required by unistore.
-* write_batch: code to batch writes into a single, atomic 'transaction'.
-* cf_iterator: code to iterate over a whole column family in badger.
+* engines: a data structure for keeping engines required by unistore.  引擎：用于保持 unistore 所需引擎的数据结构。
+* write_batch: code to batch writes into a single, atomic 'transaction'.批量写入单个原子“事务”的代码。
+* cf_iterator: code to iterate over a whole column family in badger. cf_iterator：在獾中遍历整个列族的代码。
 */
