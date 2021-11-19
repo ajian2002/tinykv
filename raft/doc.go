@@ -264,5 +264,134 @@ stale log entries:
 	is passed to the leader's Step method, the leader knows which follower
 	responded.
 
+用法
+
+raft 中的主要对象是一个节点。你要么从头开始一个节点
+使用 raft.StartNode 或使用 raft.RestartNode 从某个初始状态启动一个节点。
+
+从头开始一个节点：
+
+  存储：= raft.NewMemoryStorage()
+  c := &配置{
+    编号：0x01，
+    ElectionTick: 10,
+    HeartbeatTick: 1,
+    存储：存储，
+  }
+  n := raft.StartNode(c, []raft.Peer{{ID: 0x02}, {ID: 0x03}})
+
+要从以前的状态重新启动节点：
+
+  存储：= raft.NewMemoryStorage()
+
+  // 从持久化恢复内存中的存储
+  // 快照、状态和条目。
+  storage.ApplySnapshot（快照）
+  storage.SetHardState(state)
+  storage.Append（条目）
+
+  c := &配置{
+    编号：0x01，
+    ElectionTick: 10,
+    HeartbeatTick: 1,
+    存储：存储，
+    MaxInflightMsgs：256，
+  }
+
+  // 在没有对等信息的情况下重新启动 raft。
+  // 对等信息已经包含在存储中。
+  n := raft.RestartNode(c)
+
+现在您持有一个节点，您有一些责任：
+
+首先，您必须从 Node.Ready() 通道读取并处理更新
+它包含了。这些步骤可以并行执行，除非在步骤
+2.
+
+1. 将 HardState、Entries 和 Snapshot 写入持久存储（如果它们是）
+不是空的。请注意，当使用索引 i 编写条目时，任何
+必须丢弃以前保留的索引 >= i 的条目。
+
+2. 将所有消息发送到在 To 字段中指定的节点。重要的是
+在最新的 HardState 被持久化到磁盘之前，不会发送任何消息，
+以及由任何先前就绪批次写入的所有条目（消息可能会在
+来自同一批次的条目将被持久化）。
+
+注意：编组消息不是线程安全的；重要的是你
+确保在编组时没有新条目被持久化。
+实现这一点的最简单方法是直接在内部序列化消息
+你的主要木筏循环。
+
+3. 将快照（如果有）和 CommittedEntries 应用到状态机。
+如果任何提交的条目具有类型 EntryType_EntryConfChange，则调用 Node.ApplyConfChange()
+将其应用到节点。此时可能会取消配置更改
+通过在调用 ApplyConfChange 之前将 NodeId 字段设置为零
+（但必须以一种或另一种方式调用 ApplyConfChange，并且决定取消
+必须完全基于状态机而不是外部信息，例如
+观察到的节点健康状况）。
+
+4. 调用 Node.Advance() 以表示为下一批更新做好准备。
+这可以在步骤 1 之后的任何时间完成，但必须处理所有更新
+按照 Ready 返回的顺序。
+
+其次，所有持久化的日志条目都必须通过
+存储接口的实现。提供的 MemoryStorage
+类型可用于此（如果您重新填充其状态
+重新启动），或者您可以提供自己的磁盘支持的实现。
+
+第三，当你收到来自另一个节点的消息时，将其传递给 Node.Step：
+
+func recvRaftRPC(ctx context.Context, meerraftpb.Message) {
+n.Step(ctx, m)
+}
+
+最后，您需要定期调用 Node.Tick()（可能
+通过时间。Ticker）。 Raft 有两个重要的超时时间：heartbeat 和 the
+选举超时。但是，内部到 raft 包时间是
+由抽象的“刻度线”表示。
+
+整个状态机处理循环如下所示：
+
+  为了 {
+    选择 {
+    案例 <-s.Ticker:
+      n.Tick()
+    case rd := <-s.Node.Ready():
+      saveToStorage(rd.State, rd.Entries, rd.Snapshot)
+      发送（rd.Messages）
+      如果 !raft.IsEmptySnap(rd.Snapshot) {
+        进程快照（rd.Snapshot）
+      }
+      对于 _，条目：= 范围 rd.CommittedEntries {
+        流程（入口）
+        如果 entry.Type == eraftpb.EntryType_EntryConfChange {
+          var cc eraftpb.ConfChange
+          cc.Unmarshal(entry.Data)
+          s.Node.ApplyConfChange(cc)
+        }
+      }
+      s.Node.Advance()
+    案例 <-s.done:
+      返回
+    }
+  }
+
+要从您的节点提出对状态机的更改，请使用您的应用程序
+数据，将其序列化为字节切片并调用：
+
+n.Propose(数据)
+
+如果提案被提交，数据将出现在提交的条目中，类型为
+eraftpb.EntryType_EntryNormal。不能保证提议的命令会
+坚定的;您可能需要在超时后重新提议。
+
+要在集群中添加或删除节点，请构建 ConfChange struct 'cc' 并调用：
+
+n.ProposeConfChange(cc)
+
+提交配置更改后，一些已提交的条目类型
+eraftpb.EntryType_EntryConfChange 将被返回。您必须通过以下方式将其应用于节点：
+
+var cc eraftpb.ConfChang
 */
 package raft

@@ -27,6 +27,7 @@ package raft
 
 import (
 	"fmt"
+	"github.com/pingcap/log"
 	"reflect"
 	"sort"
 	"testing"
@@ -49,8 +50,13 @@ func TestLeaderUpdateTermFromMessage2AA(t *testing.T) {
 // value. If a candidate or leader discovers that its term is out of date,
 // it immediately reverts to follower state.
 // Reference: section 5.1
+
+// 测试如果一台服务器的当前期限小于另一台服务器的当前期限，则它将其当前期限更新为更大的值。 如果候选人或领导者发现其任期已过时，它会立即恢复到跟随者状态
 func testUpdateTermFromMessage(t *testing.T, state StateType) {
 	r := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
+
+	//log.S().Info(r)
+
 	switch state {
 	case StateFollower:
 		r.becomeFollower(1, 2)
@@ -84,12 +90,17 @@ func TestStartAsFollower2AA(t *testing.T) {
 // it will send a MessageType_MsgHeartbeat with m.Index = 0, m.LogTerm=0 and empty entries
 // as heartbeat to all followers.
 // Reference: section 5.2
+//TestLeaderBcastBeat 测试如果leader收到心跳tick，它将向所有follower发送一个带有m.Index = 0，m.LogTerm = 0和空条目的MessageType_MsgHeartbeat作为心跳。 参考：第 5.2 节
 func TestLeaderBcastBeat2AA(t *testing.T) {
 	// heartbeat interval
 	hi := 1
 	r := newTestRaft(1, []uint64{1, 2, 3}, 10, hi, NewMemoryStorage())
 	r.becomeCandidate()
 	r.becomeLeader()
+
+	//s, _ := huge.ToIndentJSON(r)
+	//log.S().Panic(s)
+	//fmt.Println(s)
 
 	r.Step(pb.Message{MsgType: pb.MessageType_MsgPropose, Entries: []*pb.Entry{{}}})
 	r.readMessages() // clear message
@@ -126,6 +137,7 @@ func TestCandidateStartNewElection2AA(t *testing.T) {
 // start a new election by incrementing its term and initiating another
 // round of RequestVote RPCs.
 // Reference: section 5.2
+// 测试如果一个跟随者在选举超时后没有收到任何通信，它就会开始选举以选择一个新的领导者。 它增加其当前期限并转换到候选状态。 然后它为自己投票并并行地向集群中的每个其他服务器发出 RequestVote RPC。 参考：第 5.2 节 同样，如果候选人未能获得多数票，它将超时并通过增加其任期并启动另一轮 RequestVote RPC 来开始新的选举。 参考：第 5.2 节
 func testNonleaderStartElection(t *testing.T, state StateType) {
 	// election timeout
 	et := 10
@@ -136,10 +148,31 @@ func testNonleaderStartElection(t *testing.T, state StateType) {
 	case StateCandidate:
 		r.becomeCandidate()
 	}
+	//s, _ := huge.ToIndentJSON(r)
+	//log.S().Panic(s)
+
+	//fmt.Printf("%+v\n", r)
+
+	//fmt.Printf("\n----------------\n")
+	//byteArray, err := json.MarshalIndent(r, "", "  ")
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//fmt.Println(string(byteArray))
 
 	for i := 1; i < 2*et; i++ {
 		r.tick()
+		//fmt.Printf("%+v\n", r)
 	}
+	//s, _ = huge.ToIndentJSON(r)
+	//log.S().Panic()
+	//fmt.Printf("%+v", r)
+
+	//byteArray, err = json.MarshalIndent(r, "", "  ")
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//fmt.Println(string(byteArray))
 
 	if r.Term != 2 {
 		t.Errorf("term = %d, want 2", r.Term)
@@ -158,6 +191,7 @@ func testNonleaderStartElection(t *testing.T, state StateType) {
 	}
 	if !reflect.DeepEqual(msgs, wmsgs) {
 		t.Errorf("msgs = %v, want %v", msgs, wmsgs)
+		// log.S().Error("msgs = %v, want %v", msgs, wmsgs)
 	}
 }
 
@@ -167,6 +201,13 @@ func testNonleaderStartElection(t *testing.T, state StateType) {
 // b) it loses the election
 // c) it is unclear about the result
 // Reference: section 5.2
+
+// TestLeaderElectionInOneRoundRPC 测试所有可能发生在
+// 在一轮 RequestVote RPC 中选举领导人：
+// a) it wins the election
+// b) 它失去了选举
+// c) 结果不清楚
+// 参考：第 5.2 节
 func TestLeaderElectionInOneRoundRPC2AA(t *testing.T) {
 	tests := []struct {
 		size  int
@@ -192,10 +233,13 @@ func TestLeaderElectionInOneRoundRPC2AA(t *testing.T) {
 
 		r.Step(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
 		for id, vote := range tt.votes {
+
+			//fmt.Printf("%+v\n", r)
 			r.Step(pb.Message{From: id, To: 1, Term: r.Term, MsgType: pb.MessageType_MsgRequestVoteResponse, Reject: !vote})
 		}
 
 		if r.State != tt.state {
+			t.Logf("%+v", tt)
 			t.Errorf("#%d: state = %s, want %s", i, r.State, tt.state)
 		}
 		if g := r.Term; g != 1 {
@@ -207,6 +251,9 @@ func TestLeaderElectionInOneRoundRPC2AA(t *testing.T) {
 // TestFollowerVote tests that each follower will vote for at most one
 // candidate in a given term, on a first-come-first-served basis.
 // Reference: section 5.2
+
+// TestFollowerVote 测试每个追随者最多会投票给一个
+// 给定任期内的候选人，先到先得。
 func TestFollowerVote2AA(t *testing.T) {
 	tests := []struct {
 		vote    uint64
@@ -215,6 +262,7 @@ func TestFollowerVote2AA(t *testing.T) {
 	}{
 		{None, 1, false},
 		{None, 2, false},
+
 		{1, 1, false},
 		{2, 2, false},
 		{1, 2, true},
@@ -232,6 +280,7 @@ func TestFollowerVote2AA(t *testing.T) {
 			{From: 1, To: tt.nvote, Term: 1, MsgType: pb.MessageType_MsgRequestVoteResponse, Reject: tt.wreject},
 		}
 		if !reflect.DeepEqual(msgs, wmsgs) {
+			t.Logf("%d:%+v", i, tt)
 			t.Errorf("#%d: msgs = %v, want %v", i, msgs, wmsgs)
 		}
 	}
@@ -242,6 +291,8 @@ func TestFollowerVote2AA(t *testing.T) {
 // to be leader whose term is at least as large as the candidate's current term,
 // it recognizes the leader as legitimate and returns to follower state.
 // Reference: section 5.2
+
+//TestCandidateFallback 测试在等待投票时，如果候选人从另一个声称是领导者的服务器接收到 AppendEntries RPC，其任期至少与候选人的当前任期一样大，它会将领导者识别为合法并返回跟随者状态。 参考：第 5.2 节
 func TestCandidateFallback2AA(t *testing.T) {
 	tests := []pb.Message{
 		{From: 2, To: 1, Term: 1, MsgType: pb.MessageType_MsgAppend},

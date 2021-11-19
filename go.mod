@@ -4,6 +4,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Connor1996/badger v1.5.1-0.20210202034640-5ff470f827f8
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
+	github.com/dablelv/go-huge-util v0.0.8
 	github.com/docker/go-units v0.4.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.4
@@ -24,7 +25,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/shirou/gopsutil v2.19.10+incompatible
 	github.com/sirupsen/logrus v1.2.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738
 	go.uber.org/zap v1.14.0
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
