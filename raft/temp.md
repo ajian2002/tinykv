@@ -1,3 +1,6 @@
+```go
+
+
 // 'MessageType_MsgBeat' is a local message that signals the leader to send a heartbeat
 // of the 'MessageType_MsgHeartbeat' type to its followers.
 //'MessageType_MsgBeat' 是一个本地消息，它通知领导者向其追随者发送一个“MessageType_MsgHeartbeat”类型的心跳。
@@ -52,3 +55,4 @@ const MessageType_MsgTransferLeader MessageType = 11
 // the transfer target timeout immediately and start a new election.
 //'MessageType_MsgTimeoutNow'从leader发送给leader的转移目标，让转移目标立即超时，开始新的选举。
 const MessageType_MsgTimeoutNow MessageType = 12
+```

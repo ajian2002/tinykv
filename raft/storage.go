@@ -58,6 +58,7 @@ type Storage interface {
 	// MaxSize limits the total size of the log entries returned, but
 	// Entries returns at least one entry if any.
 	//Entries 返回 [lo,hi) 范围内的日志条目切片。 MaxSize 限制返回的日志条目的总大小，但 Entries 至少返回一个条目（如果有）。
+
 	Entries(lo, hi uint64) ([]pb.Entry, error)
 	// Term returns the term of entry i, which must be in the range
 	// [FirstIndex()-1, LastIndex()]. The term of the entry before
@@ -129,6 +130,7 @@ func (ms *MemoryStorage) SetHardState(st pb.HardState) error {
 func (ms *MemoryStorage) Entries(lo, hi uint64) ([]pb.Entry, error) {
 	ms.Lock()
 	defer ms.Unlock()
+	//zap.S().Debugf("really memoryStorageEntries=%+v----over", ms.ents)
 	offset := ms.ents[0].Index
 	if lo <= offset {
 		return nil, ErrCompacted

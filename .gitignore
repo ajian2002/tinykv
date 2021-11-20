@@ -5,3 +5,6 @@ unikv/unikv
 bin/*
 _tools
 /vendor
+a.json
+log/*.log
+raft/log/*.log

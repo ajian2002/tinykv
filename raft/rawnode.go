@@ -88,7 +88,10 @@ type RawNode struct {
 //NewRawNode 返回一个新的RawNode给定配置和一个 raft peers 列表
 func NewRawNode(config *Config) (*RawNode, error) {
 	// Your Code Here (2A).
-	return nil, nil
+	r := &RawNode{
+		Raft: newRaft(config),
+	}
+	return r, nil
 }
 
 // Tick advances the internal logical clock by a single tick.

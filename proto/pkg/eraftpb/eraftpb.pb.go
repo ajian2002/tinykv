@@ -148,6 +148,9 @@ func (ConfChangeType) EnumDescriptor() ([]byte, []int) {
 // For configuration changes, the data will contain the ConfChange message and the
 // context will provide anything needed to assist the configuration change. The context
 // is for the user to set and use in this case.
+//该条目是一种需要应用的更改。 它包含两个数据字段。 虽然字段内置于模型中； 它们的用法由 entry_type 决定。
+//对于普通条目，数据字段应包含应应用的数据更改。 上下文字段可用于可能与数据应用相关的任何上下文数据。
+//对于配置更改，数据将包含ConfChange消息，上下文将提供帮助配置更改所需的任何内容。 在这种情况下，上下文供用户设置和使用
 type Entry struct {
 	EntryType            EntryType `protobuf:"varint,1,opt,name=entry_type,json=entryType,proto3,enum=eraftpb.EntryType" json:"entry_type,omitempty"`
 	Term                 uint64    `protobuf:"varint,2,opt,name=term,proto3" json:"term,omitempty"`

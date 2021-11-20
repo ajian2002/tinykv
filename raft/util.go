@@ -60,9 +60,10 @@ func mustTerm(term uint64, err error) uint64 {
 	return term
 }
 
+//拿到联系人
 func nodes(r *Raft) []uint64 {
 	nodes := make([]uint64, 0, len(r.Prs))
-	for id := range r.Prs {
+	for id, _ := range r.Prs {
 		nodes = append(nodes, id)
 	}
 	sort.Sort(uint64Slice(nodes))

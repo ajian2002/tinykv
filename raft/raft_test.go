@@ -17,11 +17,11 @@ package raft
 import (
 	"bytes"
 	"fmt"
+	pb "github.com/pingcap-incubator/tinykv/proto/pkg/eraftpb"
+	"go.uber.org/zap"
 	"math/rand"
 	"reflect"
 	"testing"
-
-	pb "github.com/pingcap-incubator/tinykv/proto/pkg/eraftpb"
 )
 
 // returns a new MemoryStorage with only ents filled
@@ -64,7 +64,7 @@ func TestProgressLeader2AB(t *testing.T) {
 	propMsg := pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgPropose, Entries: []*pb.Entry{{Data: []byte("foo")}}}
 	for i := 0; i < 5; i++ {
 		if pr := r.Prs[r.id]; pr.Match != uint64(i+1) || pr.Next != pr.Match+1 {
-			t.Errorf("unexpected progress %v", pr)
+			t.Errorf("unexpected progress %v, %v, %v", pr, i+1, i+2)
 		}
 		if err := r.Step(propMsg); err != nil {
 			t.Fatalf("proposal resulted in error: %v", err)
@@ -125,6 +125,8 @@ func TestLeaderCycle2AA(t *testing.T) {
 // newly-elected leader does *not* have the newest (i.e. highest term)
 // log entries, and must overwrite higher-term log entries with
 // lower-term ones.
+//TestLeaderElectionOverwriteNewerLogs 测试一个场景，在这个场景中，
+//新当选的领导人 * 没有最新(即最高任期)日志条目，并且必须用 低任期条目 覆盖 高任期日志条目。
 func TestLeaderElectionOverwriteNewerLogs2AB(t *testing.T) {
 	cfg := func(c *Config) {
 		c.peers = idsBySize(5)
@@ -143,12 +145,33 @@ func TestLeaderElectionOverwriteNewerLogs2AB(t *testing.T) {
 	// entry overwrites the losers'. (TestLeaderSyncFollowerLog tests
 	// the case where older log entries are overwritten, so this test
 	// focuses on the case where the newer entries are lost).
+
+	// 这个网络代表以下序列的结果
+	// 事件：
+	// - Node 1 won the election in term 1.
+	// - 节点 1 将日志条目复制到节点 2，但在发送之前死亡
+	// 到其他节点。
+	// - 节点 3 赢得了第 2 学期的第二次选举。
+	// - 节点 3 向其日志写入了一个条目，但没有发送它就死了
+	// 到任何其他节点。
+	//
+	// 此时，节点1、2、3中都有未提交的条目
+	// their logs and could win an election at term 3. The winner's log
+	// 条目覆盖失败者'。 （TestLeaderSyncFollowerLog 测试
+	// 旧日志条目被覆盖的情况，所以这个测试
+	// 关注较新条目丢失的情况）。
+
+	r1 := entsWithConfig(cfg, 1)
+	r2 := entsWithConfig(cfg, 1)
+	r3 := entsWithConfig(cfg, 2)
+	r4 := votedWithConfig(cfg, 3, 2)
+	r5 := votedWithConfig(cfg, 3, 2)
 	n := newNetworkWithConfig(cfg,
-		entsWithConfig(cfg, 1),     // Node 1: Won first election
-		entsWithConfig(cfg, 1),     // Node 2: Got logs from node 1
-		entsWithConfig(cfg, 2),     // Node 3: Won second election
-		votedWithConfig(cfg, 3, 2), // Node 4: Voted but didn't get logs
-		votedWithConfig(cfg, 3, 2)) // Node 5: Voted but didn't get logs
+		r1, // Node 1: Won first election
+		r2, // Node 2: Got logs from node 1
+		r3, // Node 3: Won second election
+		r4, // Node 4: Voted but didn't get logs
+		r5) // Node 5: Voted but didn't get logs
 
 	// Node 1 campaigns. The election fails because a quorum of nodes
 	// know about the election that already happened at term 2. Node 1's
@@ -163,6 +186,7 @@ func TestLeaderElectionOverwriteNewerLogs2AB(t *testing.T) {
 	}
 
 	// Node 1 campaigns again with a higher term. This time it succeeds.
+	//节点 1 再次以更高的任期进行竞选。这次成功了。
 	n.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
 	if sm1.State != StateLeader {
 		t.Errorf("state = %s, want StateLeader", sm1.State)
@@ -230,6 +254,7 @@ func TestVoteFromAnyState2AA(t *testing.T) {
 					vt, st, resp.MsgType, vt_resp)
 			}
 			if resp.Reject {
+				//fmt.Printf("%s:%+v\n", st, r)
 				t.Errorf("%s,%s: unexpected rejection", vt, st)
 			}
 		}
@@ -244,6 +269,9 @@ func TestVoteFromAnyState2AA(t *testing.T) {
 		if r.Vote != 2 {
 			t.Errorf("%s,%s: vote %d, want 2", vt, st, r.Vote)
 		}
+
+		//fmt.Printf("%s:ok\n", st)
+
 	}
 }
 
@@ -353,6 +381,7 @@ func TestCommitWithoutNewTermEntry2AB(t *testing.T) {
 // TestCommitWithHeartbeat tests leader can send log
 // to follower when it received a heartbeat response
 // which indicate it doesn't have update-to-date log
+//TestCommitWithHeartbeat 测试领导者可以在收到心跳响应时将日志发送给跟随者，这表明它没有更新到最新的日志
 func TestCommitWithHeartbeat2AB(t *testing.T) {
 	tt := newNetwork(nil, nil, nil, nil, nil)
 	tt.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
@@ -390,12 +419,14 @@ func TestDuelingCandidates2AB(t *testing.T) {
 	nt.send(pb.Message{From: 3, To: 3, MsgType: pb.MessageType_MsgHup})
 
 	// 1 becomes leader since it receives votes from 1 and 2
+	//1 成为领导者，因为它收到了 1 和 2 的投票
 	sm := nt.peers[1].(*Raft)
 	if sm.State != StateLeader {
 		t.Errorf("state = %s, want %s", sm.State, StateLeader)
 	}
 
 	// 3 stays as candidate since it receives a vote from 3 and a rejection from 2
+	//3 保留为候选人，因为它收到 3 的投票和 2 的拒绝
 	sm = nt.peers[3].(*Raft)
 	if sm.State != StateCandidate {
 		t.Errorf("state = %s, want %s", sm.State, StateCandidate)
@@ -406,6 +437,7 @@ func TestDuelingCandidates2AB(t *testing.T) {
 	// candidate 3 now increases its term and tries to vote again
 	// we expect it to disrupt the leader 1 since it has a higher term
 	// 3 will be follower again since both 1 and 2 rejects its vote request since 3 does not have a long enough log
+	//候选人 3 现在增加其任期并尝试再次投票 我们预计它会扰乱领导者 1，因为它有更高的任期 3 将再次成为追随者，因为 1 和 2 都拒绝了它的投票请求，因为 3 没有足够长的日志
 	nt.send(pb.Message{From: 3, To: 3, MsgType: pb.MessageType_MsgHup})
 
 	wlog := newLog(newMemoryStorageWithEnts([]pb.Entry{{}, {Data: nil, Term: 1, Index: 1}}))
@@ -448,6 +480,7 @@ func TestCandidateConcede2AB(t *testing.T) {
 	tt.send(pb.Message{From: 3, To: 3, MsgType: pb.MessageType_MsgHup})
 
 	// heal the partition
+	////治愈分区
 	tt.recover()
 	// send heartbeat; reset wait
 	tt.send(pb.Message{From: 3, To: 3, MsgType: pb.MessageType_MsgBeat})
@@ -472,6 +505,7 @@ func TestCandidateConcede2AB(t *testing.T) {
 		if sm, ok := p.(*Raft); ok {
 			l := ltoa(sm.RaftLog)
 			if g := diffu(wantLog, l); g != "" {
+				zap.S().Debugf("%d\n%+v\n%+v", i, wantLog, l)
 				t.Errorf("#%d: diff:\n%s", i, g)
 			}
 		} else {
@@ -483,7 +517,6 @@ func TestCandidateConcede2AB(t *testing.T) {
 func TestSingleNodeCandidate2AA(t *testing.T) {
 	tt := newNetwork(nil)
 	tt.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
-
 	sm := tt.peers[1].(*Raft)
 	if sm.State != StateLeader {
 		t.Errorf("state = %d, want %d", sm.State, StateLeader)
@@ -566,6 +599,10 @@ func TestProposal2AB(t *testing.T) {
 // 2. If an existing entry conflicts with a new one (same index but different terms),
 //    delete the existing entry and all that follow it; append any new entries not already in the log.
 // 3. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry).
+//TestHandleMessageType_MsgAppend 确保：
+//1. 如果日志在 prevLogIndex 中不包含其术语与 prevLogTerm 匹配的条目，则回复 false。
+//2. 如果现有条目与新条目冲突（相同的索引但不同的术语），删除现有条目和所有以下情况的条目;追加任何未在日志中的新条目。
+//3. 如果leaderCommit > commitIndex，设置commitIndex = min(leaderCommit, index of last new entry)。
 func TestHandleMessageType_MsgAppend2AB(t *testing.T) {
 	tests := []struct {
 		m       pb.Message
@@ -710,6 +747,9 @@ func TestAllServerStepdown2AB(t *testing.T) {
 	tterm := uint64(3)
 
 	for i, tt := range tests {
+		//if i!=1{
+		//	continue
+		//}
 		sm := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
 		switch tt.state {
 		case StateFollower:
@@ -741,7 +781,7 @@ func TestAllServerStepdown2AB(t *testing.T) {
 				wlead = None
 			}
 			if sm.Lead != wlead {
-				t.Errorf("#%d, sm.Lead = %d, want %d", i, sm.Lead, wlead)
+				t.Errorf("#%d.%d, sm.Lead = %d, want %d", i, j, sm.Lead, wlead)
 			}
 		}
 	}
@@ -947,6 +987,7 @@ func TestHeartbeatUpdateCommit2AB(t *testing.T) {
 }
 
 // tests the output of the state machine when receiving MessageType_MsgBeat
+// 接收 MessageType_MsgBeat 时测试状态机的输出
 func TestRecvMessageType_MsgBeat2AA(t *testing.T) {
 	tests := []struct {
 		state StateType
@@ -954,6 +995,7 @@ func TestRecvMessageType_MsgBeat2AA(t *testing.T) {
 	}{
 		{StateLeader, 2},
 		// candidate and follower should ignore MessageType_MsgBeat
+		//候选人和追随者应该忽略 MessageType_MsgBeat
 		{StateCandidate, 0},
 		{StateFollower, 0},
 	}
@@ -967,6 +1009,7 @@ func TestRecvMessageType_MsgBeat2AA(t *testing.T) {
 
 		msgs := sm.readMessages()
 		if len(msgs) != tt.wMsg {
+			// fmt.Printf("%s:", tt.state)
 			t.Errorf("%d: len(msgs) = %d, want %d", i, len(msgs), tt.wMsg)
 		}
 		for _, m := range msgs {
@@ -1167,7 +1210,9 @@ func TestCampaignWhileLeader2AA(t *testing.T) {
 		t.Errorf("expected single-node election to become leader but got %s", r.State)
 	}
 	term := r.Term
+	//fmt.Printf("%+v", r)
 	r.Step(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgHup})
+	//fmt.Printf("%+v", r)
 	if r.State != StateLeader {
 		t.Errorf("expected to remain leader but got %s", r.State)
 	}
@@ -1444,6 +1489,7 @@ func TestTransferNonMember3A(t *testing.T) {
 
 // TestSplitVote verifies that after split vote, cluster can complete
 // election in next round.
+// TestSplitVote 验证分裂投票后，集群可以完成下一轮选举。
 func TestSplitVote2AA(t *testing.T) {
 	n1 := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
 	n2 := newTestRaft(2, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
