@@ -540,8 +540,14 @@ func (r *Raft) handleHeartbeatRequest(m pb.Message) {
 	if m.GetFrom() == r.Lead && r.State != StateLeader {
 		r.electionElapsed = 0
 	}
-
 	g := r.RaftLog
+	if r.State == StateLeader {
+		r.becomeFollower(m.GetTerm(), m.GetFrom())
+		g.committed = 0
+		g.applied = 0
+		g.stabled = 0
+		g.entries = nil
+	}
 	r.updateEntries(m.GetEntries())
 	if m.GetCommit() > g.committed && m.GetCommit() <= r.RaftLog.LastIndex() {
 		r.RaftLog.committed = m.GetCommit()
