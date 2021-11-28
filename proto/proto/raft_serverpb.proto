@@ -5,6 +5,7 @@ import "eraftpb.proto";
 import "metapb.proto";
 
 // The message sent between Raft peer, it wraps the raft meessage with some meta information.
+//    在 Raft peer 之间发送的消息，它用一些元信息包装了 raft 消息。
 message RaftMessage {
     uint64 region_id = 1;
     metapb.Peer from_peer = 2;
@@ -12,6 +13,7 @@ message RaftMessage {
     eraftpb.Message message = 4;
     metapb.RegionEpoch region_epoch = 5;
     // true means to_peer is a tombstone peer and it should remove itself.
+//    true 表示 to_peer 是一个墓碑节点，它应该删除自己。
     bool is_tombstone = 6;
     // Region key range [start_key, end_key). (Used in 3B)
     bytes start_key = 7;
@@ -19,6 +21,7 @@ message RaftMessage {
 }
 
 // Used to store the persistent state for Raft, including the hard state for raft and the last index of the raft log.
+//    用于存储 Raft 的持久状态，包括 raft 的硬状态和 raft 日志的最后一个索引。
 message RaftLocalState {
     eraftpb.HardState hard_state = 1;
     uint64 last_index = 2;
@@ -26,11 +29,14 @@ message RaftLocalState {
 }
 
 // Used to store the persistent state for Raft state machine.
+//    用于存储 Raft 状态机的持久状态。
 message RaftApplyState {
     // Record the applied index of the state machine to make sure
     // not apply any index twice after restart.
+//    记录状态机的应用索引，确保重启后不应用任何索引两次。
     uint64 applied_index = 1;
     // Record the index and term of the last raft log that have been truncated. (Used in 2C)
+//    记录最后被截断的 raft log 的 index 和 term。 （用于 2C）
     RaftTruncatedState truncated_state = 2; 
 }
 
