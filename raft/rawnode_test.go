@@ -157,6 +157,7 @@ func TestRawNodeProposeAddDuplicateNode3A(t *testing.T) {
 
 // TestRawNodeStart ensures that a node can be started correctly, and can accept and commit
 // proposals.
+// testRawnodeStart可确保可以正确启动节点，并且可以接受和提交//提出建议。
 func TestRawNodeStart2AC(t *testing.T) {
 	storage := NewMemoryStorage()
 	rawNode, err := NewRawNode(newTestConfig(1, []uint64{1}, 10, 1, storage))

@@ -265,7 +265,7 @@ func newRaft(c *Config) *Raft {
 		Prs:                 peers,
 		State:               StateFollower,
 		votes:               make(map[uint64]bool),
-		msgs:                make([]pb.Message, 0),
+		msgs:               	nil,
 		Lead:                0,
 		heartbeatTimeout:    c.HeartbeatTick,
 		electionTimeout:     c.ElectionTick,
@@ -336,7 +336,7 @@ func (r *Raft) handlePropose(m pb.Message) {
 		//TODO:单一leader情况
 		if len(r.Prs) == 1 {
 			r.RaftLog.committed = r.RaftLog.LastIndex()
-			r.RaftLog.stabled = r.RaftLog.committed
+			//r.RaftLog.stabled = r.RaftLog.committed
 			return
 		}
 	}

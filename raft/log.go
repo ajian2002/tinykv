@@ -83,7 +83,6 @@ func newLog(storage Storage) *RaftLog {
 	state, _, err2 := storage.InitialState()
 	if err2 == nil {
 		log.committed = state.Commit
-		log.applied = state.Commit
 	}
 	//n,_:=log.storage.Entries()
 	//first, _ := storage.FirstIndex()
@@ -95,6 +94,8 @@ func newLog(storage Storage) *RaftLog {
 	}
 	log.stabled = last //TODO:填什么
 	//log.stabled = log.LastIndex()
+	//log.applied = log.stabled
+	//log.applied = log.stabled
 	return log
 	//  snapshot/first.....applied....committed....stabled.....last
 	// Your Code Here (2A).

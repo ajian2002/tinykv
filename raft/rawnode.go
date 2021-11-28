@@ -46,12 +46,20 @@ type Ready struct {
 	// It is not required to consume or store SoftState.
 	// 节点的当前 volatile 状态。如果没有更新，SoftState 将为 nil。不需要消耗或存储 SoftState。
 	*SoftState
+	//	Lead      uint64
+	//	RaftState StateType
 
 	// The current state of a Node to be saved to stable storage BEFORE
 	// Messages are sent.
 	// HardState will be equal to empty state if there is no update.
 	//在发送消息之前要保存到稳定存储的节点的当前状态。如果没有更新，HardState 将等于空状态。
 	pb.HardState
+	//	Term                 uint64   `protobuf:"varint,1,opt,name=term,proto3" json:"term,omitempty"`
+	//	Vote                 uint64   `protobuf:"varint,2,opt,name=vote,proto3" json:"vote,omitempty"`
+	//	Commit               uint64   `protobuf:"varint,3,opt,name=commit,proto3" json:"commit,omitempty"`
+	//	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	//	XXX_unrecognized     []byte   `json:"-"`
+	//	XXX_sizecache        int32    `json:"-"`
 
 	// Entries specifies entries to be saved to stable storage BEFORE
 	// Messages are sent.
@@ -81,17 +89,34 @@ type Ready struct {
 type RawNode struct {
 	Raft *Raft
 	// Your Data Here (2A).
-
+	preSoft SoftState
+	preHard pb.HardState
 }
 
 // NewRawNode returns a new RawNode given configuration and a list of raft peers.
 //NewRawNode 返回一个新的RawNode给定配置和一个 raft peers 列表
 func NewRawNode(config *Config) (*RawNode, error) {
 	// Your Code Here (2A).
-	r := &RawNode{
-		Raft: newRaft(config),
+	r := newRaft(config)
+	//if r == nil || r.RaftLog == nil {
+	//	return nil,nil
+	//}
+	rn := &RawNode{
+		Raft: r,
+		preSoft: SoftState{
+			Lead:      r.Lead,
+			RaftState: r.State,
+		},
+		preHard: pb.HardState{
+			Term:                 r.Term,
+			Vote:                 r.Vote,
+			Commit:               r.RaftLog.committed,
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+		},
 	}
-	return r, nil
+	return rn, nil
 }
 
 // Tick advances the internal logical clock by a single tick.
@@ -165,22 +190,102 @@ func (rn *RawNode) Step(m pb.Message) error {
 // Ready returns the current point-in-time state of this RawNode.
 //Ready返回此RawNode的当前时间点状态
 func (rn *RawNode) Ready() Ready {
+	r := rn.Raft
+	g := r.RaftLog
+	soft := rn.getSoft()
+	hard := pb.HardState{
+		Term:                 0,
+		Vote:                 0,
+		Commit:               0,
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+	}
+	hh := rn.getHard()
+	if hh != nil {
+		hard = *hh
+	}
+	ready := Ready{
+		SoftState:        soft,
+		HardState:        hard,
+		Entries:          g.unstableEntries(),
+		Snapshot:         pb.Snapshot{},
+		CommittedEntries: g.nextEnts(),
+		Messages:         r.msgs,
+	}
 	// Your Code Here (2A).
-	return Ready{}
+	return ready
 }
 
 // HasReady called when RawNode user need to check if any Ready pending.
 //当 RawNode 用户需要检查是否有任何就绪挂起时调用 HasReady。
 func (rn *RawNode) HasReady() bool {
 	// Your Code Here (2A).
+
 	return false
+}
+func (rn *RawNode) getSoft() *SoftState {
+	r := rn.Raft
+	nowSoft := &SoftState{
+		Lead:      r.Lead,
+		RaftState: r.State,
+	}
+	if rn.preSoft.Lead == nowSoft.Lead && rn.preSoft.RaftState == nowSoft.RaftState {
+		return nil
+	} else {
+		//rn.preSoft = *nowSoft
+		return nowSoft
+	}
+
+}
+func (rn *RawNode) getHard() *pb.HardState {
+	r := rn.Raft
+	nowHard := &pb.HardState{
+		Term:                 r.Term,
+		Vote:                 r.Vote,
+		Commit:               r.RaftLog.committed,
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     nil,
+		XXX_sizecache:        0,
+	}
+	if rn.preHard.Term == nowHard.Term && rn.preHard.Vote == nowHard.Vote && rn.preHard.Commit == nowHard.Commit {
+		return nil
+	} else {
+		//rn.preHard = *nowHard
+		return nowHard
+	}
 }
 
 // Advance notifies the RawNode that the application has applied and saved progress in the
 // last Ready results.
 //Advance 通知RawNode应用程序已应用并保存了上次Ready结果中的进度
 func (rn *RawNode) Advance(rd Ready) {
-	// Your Code Here (2A).
+	//	ready := Ready{
+	//		SoftState:        soft,
+	//		HardState:        *hard,
+	//		Entries:          g.entries,
+	//		Snapshot:         pb.Snapshot{},
+	//		CommittedEntries: g.nextEnts(),
+	//		Messages:         r.msgs,
+	//	}
+	r := rn.Raft
+	g := r.RaftLog
+	for _, v := range rd.Messages {
+		rn.Step(v)
+	}
+	g.stabled = g.LastIndex()
+	g.applied = g.committed
+
+	nowHard := rn.getHard()
+	nowSoft := rn.getSoft()
+	if nowHard != nil {
+		rn.preHard = *nowHard
+	}
+	if nowSoft != nil {
+		rn.preSoft = *nowSoft
+	}
+
+	//Your Code Here (2A).
 }
 
 // GetProgress return the Progress of this node and its peers, if this
