@@ -26,7 +26,44 @@
 
 ### The Code
 
+首先，您应该查看的代码是位于kv/storage/raft_storage/raft_server.go中的RaftStorage，它也实现了存储接口。与StandaloneStorage不同，StandaloneStorage直接从底层引擎写入或读取数据，RaftStorage它首先向Raft发送每个写入或读取请求，然后在Raft提交请求后向底层引擎执行实际的写入和读取操作。通过这种方式，它可以保持多个存储之间的一致性。
 
+RaftStorage主要创建一个用于驱动Raft的Raftstore。调用Reader或Write函数时，它实际上会将proto/proto/raft_cmdpb.proto中定义的带有四种基本命令类型（Get/Put/Delete/Snap）的RaftCmdRequest发送到raftstore by channel（通道的接收者是raftWorker的raftCh），并在raft提交并应用命令后返回响应。Reader And Write函数的kvrpc.Context参数现在很有用，它从客户端的角度携带区域信息，并作为请求的头传递。可能信息是错误的或过时的，所以raftstore需要检查这些信息并决定是否提出请求。
+
+Then, here comes the core of TinyKV — raftstore. The structure is a little complicated, you can read the reference of TiKV to give you a better understanding of the design:
+
+https://pingcap.com/blog-cn/the-design-and-implementation-of-multi-raft/#raftstore (Chinese Version)
+https://pingcap.com/blog/2017-08-15-multi-raft/#raftstore (English Version)
+
+raftstore的入口为 Raftstore ，见kv/raftstore/raftstore.go。它启动了一些工作人员异步处理特定任务，其中大多数现在不使用，因此您可以忽略它们。你所需要关注的就是raftWorker。（kv/raftstore/raftu-worker.go）
+
+整个过程分为两个部分：raft工人轮询raftCh以获取消息，消息包括用于驱动raft模块的基本勾号(base tick)和作为raft条目提出的raft命令；它从Raft模块获取并处理就绪信息，包括发送Raft消息、保持状态、将提交的条目应用到状态机。应用后，将响应返回给客户端。
+
+### Implement peer storage
+### 实现对等存储
+
+对等存储是您通过第A部分中的存储接口与之交互的存储，但除了raft日志之外，对等存储还管理其他持久化元数据，这对于重启后恢复一致状态机非常重要。此外，proto/proto/raft_serverpb.proto中定义了三种重要状态：
+
+- RaftLocalState：用于存储当前Raft和最后一个日志索引的硬状态。
+
+- RaftApplyState：用于存储Raft应用的最后一个日志索引和一些截断的日志信息。
+
+RegionLocalState：用于存储此存储上的区域信息和相应的对等状态。Normal表示该对等点正常，Tombstone表示该对等点已从区域中删除，无法加入Raft组。
+
+这些状态存储在两个獾(badger)实例中：raftdb和kvdb：
+
+- raftdb存储raft日志和RaftLocalState
+- kvdb将键值数据存储在不同的列族RegionLocalState和RaftApplyState中。您可以将kvdb视为本文中提到的状态机
+
+格式如下，kv/raftstore/meta中提供了一些帮助函数，并将它们设置为badger with writebatch.SetMeta（）。
+
+Key	                   KeyFormat	                    Value	        DB
+raft_log_key	    0x01 0x02 region_id 0x01 log_idx	Entry	        raft
+raft_state_key	    0x01 0x02 region_id 0x02	    RaftLocalState	    raft
+apply_state_key	    0x01 0x02 region_id 0x03	    RaftApplyState	    kv
+region_state_key	0x01 0x03 region_id 0x01	    RegionLocalState	kv
+
+您可能想知道为什么TinyKV需要两个badger实例。实际上，它只能使用一个獾来存储raft日志和状态机数据。分为两个实例只是为了与TiKV设计保持一致。
 
 这些元数据应该在“PeerStorage”中创建和更新。创建 PeerStorage 时，请参阅 `kvraftstorepeer_storage.go`。它初始化这个Peer的RaftLocalState、RaftApplyState，或者在重启的情况下从底层引擎获取之前的值。注意RAFT_INIT_LOG_TERM和RAFT_INIT_LOG_INDEX的值都是5（只要大于1），但不是0，不设置为0是为了区分peer修改后被动创建的情况。你现在可能不太明白，所以记住它，当你实施conf更改时，细节将在project3b中描述。
 
@@ -36,11 +73,13 @@
 
 要保存硬状态也很容易，只需更新对等存储的RaftLocalState.HardState并将其保存到raftdb。
 
-为了保存硬状态也很容易，只是更新对等体存储的raftlocalstate.hardstate并将其保存到Raftdb。
-
 提示：
+
 - 使用WriteBatch立即保存这些状态。
+
 - 有关如何读取和写入这些状态，请参阅peer_storage.go上的其他函数。
+
+
 
 ### Implement Raft ready process
 ### 实施筏式准备流程
