@@ -32,6 +32,7 @@ func NotifyReqRegionRemoved(regionId uint64, cb *message.Callback) {
 // If we create the peer actively, like bootstrap/split/merge region, we should
 // use this function to create the peer. The region must contain the peer info
 // for this store.
+// 如果我们主动创建peer ，比如bootstrap/split/merge region，我们应该使用这个函数来创建peer 。 该region必须包含该store的对等信息。
 func createPeer(storeID uint64, cfg *config.Config, sched chan<- worker.Task,
 	engines *engine_util.Engines, region *metapb.Region) (*peer, error) {
 	metaPeer := util.FindPeer(region, storeID)
@@ -45,6 +46,7 @@ func createPeer(storeID uint64, cfg *config.Config, sched chan<- worker.Task,
 // The peer can be created from another node with raft membership changes, and we only
 // know the region_id and peer_id when creating this replicated peer, the region info
 // will be retrieved later after applying snapshot.
+//可以从另一个具有 raft 成员资格更改的节点创建对等节点，并且在创建此复制对等节点时我们只知道 region_id 和 peer_id ，稍后将在应用快照后检索区域信息。
 func replicatePeer(storeID uint64, cfg *config.Config, sched chan<- worker.Task,
 	engines *engine_util.Engines, regionID uint64, metaPeer *metapb.Peer) (*peer, error) {
 	// We will remove tombstone key when apply snapshot
@@ -58,12 +60,13 @@ func replicatePeer(storeID uint64, cfg *config.Config, sched chan<- worker.Task,
 
 type proposal struct {
 	// index + term for unique identification
+	// 索引  和 术语以获得唯一识别
 	index uint64
 	term  uint64
 	cb    *message.Callback
 }
 
-type peer struct {
+type peer struct  {
 	// The ticker of the peer, used to trigger
 	// * raft tick
 	// * raft log gc
@@ -76,6 +79,7 @@ type peer struct {
 	peerStorage *PeerStorage
 
 	// Record the meta information of the peer
+	// 记录peer的元信息
 	Meta     *metapb.Peer
 	regionId uint64
 	// Tag which is useful for printing log
@@ -83,6 +87,7 @@ type peer struct {
 
 	// Record the callback of the proposals
 	// (Used in 2B)
+	//记录提案的回调（用于2B
 	proposals []*proposal
 
 	// Index of last scheduled compacted raft log.

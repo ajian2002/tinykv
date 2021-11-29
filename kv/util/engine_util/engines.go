@@ -13,6 +13,8 @@ import (
 type Engines struct {
 	// Data, including data which is committed (i.e., committed across other nodes) and un-committed (i.e., only present
 	// locally).
+	//Package badger 实现了一个可嵌入的、简单且快速的键值数据库，它是用纯 Go 编写的。 它旨在同时为读取和写入提供高性能。 Badger 使用多版本并发控制 (MVCC)，并支持事务。 它同时运行事务，具有可序列化的快照隔离保证。
+	//Badger 使用 LSM 树和值日志将键与值分开，从而减少写入放大和 LSM 树的大小。 这允许 LSM 树完全由 RAM 提供，而值则由 SSD 提供。
 	Kv     *badger.DB
 	KvPath string
 	// Metadata used by Raft.

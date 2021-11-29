@@ -25,6 +25,9 @@ const InvalidID uint64 = 0
 // Heartbeat message for the store of that peer to check whether to create a new peer
 // when receiving these messages, or just to wait for a pending region split to perform
 // later.
+/// `is_initial_msg` 检查 `msg` 是否可用于初始化新的对等点。 可能有两种情况： 1. Target peer 已经存在，但是还没有和leader建立通信 2. Target peer 是因为成员变更或者区域分裂而新增的，但是没有
+//   created yet
+// 对于这两种情况，区域开始密钥和结束密钥都附加在请求投票和心跳消息中，以便该对等方的存储检查是否在收到这些消息时创建新的对等方，或者只是等待待处理的区域拆分稍后执行。
 func IsInitialMsg(msg *eraftpb.Message) bool {
 	return msg.MsgType == eraftpb.MessageType_MsgRequestVote ||
 		// the peer has not been known to this leader, it may exist or not.
@@ -32,6 +35,7 @@ func IsInitialMsg(msg *eraftpb.Message) bool {
 }
 
 /// Check if key in region range [`start_key`, `end_key`).
+/// 检查密钥是否在区域范围 [`start_key`, `end_key`) 内。
 func CheckKeyInRegion(key []byte, region *metapb.Region) error {
 	if bytes.Compare(key, region.StartKey) >= 0 && (len(region.EndKey) == 0 || bytes.Compare(key, region.EndKey) < 0) {
 		return nil

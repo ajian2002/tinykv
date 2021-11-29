@@ -22,15 +22,15 @@ const (
 	RegionRaftLogLen         = 19 // REGION_RAFT_PREFIX_KEY + region_id + suffix + index
 
 	// Following are the suffix after the local prefix.
-		//以下是本地前缀后的后缀。
+	//以下是本地前缀后的后缀。
 	// For region id
-		//对于区域 ID
+	//对于区域 ID
 	RaftLogSuffix    byte = 0x01
 	RaftStateSuffix  byte = 0x02
 	ApplyStateSuffix byte = 0x03
 
 	// For region meta
-		//对于区域元
+	//对于区域元
 	RegionStateSuffix byte = 0x01
 )
 
@@ -82,7 +82,7 @@ func RaftStateKey(regionID uint64) []byte {
 	return makeRegionPrefix(regionID, RaftStateSuffix)
 }
 
-func ApplyStateKey(regionID uint64对于区域元) []byte {
+func ApplyStateKey(regionID uint64) []byte {
 	return makeRegionPrefix(regionID, ApplyStateSuffix)
 }
 

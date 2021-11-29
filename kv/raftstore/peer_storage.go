@@ -33,20 +33,20 @@ var _ raft.Storage = new(PeerStorage)
 
 type PeerStorage struct {
 	// current region information of the peer
-	//peer当前区域信息
+	//peer当前Region信息
 	region *metapb.Region
 	// current raft state of the peer
-	//对等方的当前raft状态
+	//peer的当前raft状态
 	raftState *rspb.RaftLocalState
 	// current apply state of the peer
-	//对等体的当前应用状态
+	//peer的当前应用状态
 	applyState *rspb.RaftApplyState
 
 	// current snapshot state
 	//当前快照状态
 	snapState snap.SnapState
 	// regionSched used to schedule task to region worker
-	//regionSched 用于将任务调度到区域工作器
+	//regionSched 用于将任务调度到Region工作器
 	regionSched chan<- worker.Task
 	// generate snapshot tried count
 	//生成快照尝试次数
@@ -60,6 +60,7 @@ type PeerStorage struct {
 }
 
 // NewPeerStorage get the persist raftState from engines and return a peer storage
+//NewPeerStorage 从引擎获取持久的 raftState 并返回对等存储
 func NewPeerStorage(engines *engine_util.Engines, region *metapb.Region, regionSched chan<- worker.Task, tag string) (*PeerStorage, error) {
 	log.Debugf("%s creating storage for %s", tag, region.String())
 	raftState, err := meta.InitRaftLocalState(engines.Raft, region)
@@ -337,6 +338,7 @@ func (ps *PeerStorage) ApplySnapshot(snapshot *eraftpb.Snapshot, kvWB *engine_ut
 
 // Save memory states to disk.
 // Do not modify ready in this function, this is a requirement to advance the ready object properly later.
+//将内存状态保存到磁盘。 不要在这个函数中修改ready，这是以后正确推进ready对象的要求。
 func (ps *PeerStorage) SaveReadyState(ready *raft.Ready) (*ApplySnapResult, error) {
 	// Hint: you may call `Append()` and `ApplySnapshot()` in this function
 	// Your Code Here (2B/2C).
