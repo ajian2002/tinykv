@@ -16,7 +16,7 @@ const (
 	//消息以启动对等节点的自动收报机
 	MsgTypeStart MsgType = 1
 	// message of base tick to drive the ticker
-	用于驱动自动收报机的基本滴答消息
+	//用于驱动自动收报机的基本滴答消息
 	MsgTypeTick MsgType = 2
 	// message wraps a raft message that should be forwarded to Raft module
 	// the raft message is from peer on other store

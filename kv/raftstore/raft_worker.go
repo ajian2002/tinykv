@@ -7,12 +7,16 @@ import (
 )
 
 // raftWorker is responsible for run raft commands and apply raft logs.
+//raftWorker 负责运行 raft 命令并应用 raft 日志。
 type raftWorker struct {
 	pr *router
 
 	// receiver of messages should sent to raft, including:
 	// * raft command from `raftStorage`
 	// * raft inner messages from other peers sent by network
+	//消息的接收者应该发送到 raft，包括：
+	//来自 `raftStorage` 的 raft 命令
+	//来自网络发送的其他对等方的 raft 内部消息
 	raftCh chan message.Msg
 	ctx    *GlobalContext
 
@@ -30,6 +34,9 @@ func newRaftWorker(ctx *GlobalContext, pm *router) *raftWorker {
 // run runs raft commands.
 // On each loop, raft commands are batched by channel buffer.
 // After commands are handled, we collect apply messages by peers, make a applyBatch, send it to apply channel.
+//run 运行 raft 命令。
+//在每个循环中，raft 命令由通道缓冲区 批 处理。
+//处理完命令后，我们收集peer的apply消息，制作applyBatch，将其发送到apply通道。
 func (rw *raftWorker) run(closeCh <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var msgs []message.Msg

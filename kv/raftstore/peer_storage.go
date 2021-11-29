@@ -24,6 +24,7 @@ import (
 
 type ApplySnapResult struct {
 	// PrevRegion is the region before snapshot applied
+	//PrevRegion 是应用快照之前的 Region
 	PrevRegion *metapb.Region
 	Region     *metapb.Region
 }
@@ -32,21 +33,29 @@ var _ raft.Storage = new(PeerStorage)
 
 type PeerStorage struct {
 	// current region information of the peer
+	//peer当前区域信息
 	region *metapb.Region
 	// current raft state of the peer
+	//对等方的当前raft状态
 	raftState *rspb.RaftLocalState
 	// current apply state of the peer
+	//对等体的当前应用状态
 	applyState *rspb.RaftApplyState
 
 	// current snapshot state
+	//当前快照状态
 	snapState snap.SnapState
 	// regionSched used to schedule task to region worker
+	//regionSched 用于将任务调度到区域工作器
 	regionSched chan<- worker.Task
 	// generate snapshot tried count
+	//生成快照尝试次数
 	snapTriedCnt int
 	// Engine include two badger instance: Raft and Kv
+	//引擎包括两个 badger 实例：Raft 和 Kv
 	Engines *engine_util.Engines
 	// Tag used for logging
+	//用于日志记录的标签
 	Tag string
 }
 
