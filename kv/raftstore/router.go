@@ -12,12 +12,14 @@ import (
 )
 
 // peerState contains the peer states that needs to run raft command and apply command.
+// peastate包含需要运行RAFT命令并应用命令的peer状态。
 type peerState struct {
 	closed uint32
 	peer   *peer
 }
 
 // router routes a message to a peer.
+//路由器router将消息路由到peer
 type router struct {
 	peers       sync.Map // regionID -> peerState
 	peerSender  chan message.Msg

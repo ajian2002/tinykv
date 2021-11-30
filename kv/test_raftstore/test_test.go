@@ -157,6 +157,7 @@ func confchanger(t *testing.T, cluster *Cluster, ch chan bool, done *int32) {
 // - If maxraftlog is a positive number, the count of the persistent log for Raft shouldn't exceed 2*maxraftlog.
 // - If confchangee is set, the cluster will schedule random conf change concurrently.
 // - If split is set, split region when size exceed 1024 bytes.
+//基本测试如下：一个或多个客户端在一段时间内向一组服务器提交 Put/Scan 操作。 期间结束后，测试检查所有顺序值是否存在，并按特定键的顺序执行删除以进行清理。 - 如果设置了不可靠，RPC 可能会失败。 - 如果设置了崩溃，服务器会在期限结束后重新启动。 - 如果设置了partitions，测试会同时在服务器之间重新划分网络。 - 如果 maxraftlog 为正数，则 Raft 的持久日志计数不应超过 2*maxraftlog。 - 如果设置了 confchangee，集群将同时调度随机 conf 更改。 - 如果设置了split，则在大小超过1024 字节时拆分区域。
 func GenericTest(t *testing.T, part string, nclients int, unreliable bool, crash bool, partitions bool, maxraftlog int, confchange bool, split bool) {
 	title := "Test: "
 	if unreliable {

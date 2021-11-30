@@ -41,6 +41,7 @@ func newStoreState(cfg *config.Config) (chan<- message.Msg, *storeState) {
 }
 
 // storeWorker runs store commands.
+// // StoreWorker运行Store命令。
 type storeWorker struct {
 	*storeState
 	ctx *GlobalContext
@@ -97,6 +98,7 @@ func (d *storeWorker) start(store *metapb.Store) {
 /// Checks if the message is targeting a stale peer.
 ///
 /// Returns true means the message can be dropped silently.
+///检查消息是否针对陈旧的peer。 ///返回true表示消息可以静默删除。
 func (d *storeWorker) checkMsg(msg *rspb.RaftMessage) (bool, error) {
 	regionID := msg.GetRegionId()
 	fromEpoch := msg.GetRegionEpoch()
@@ -192,9 +194,11 @@ func (d *storeWorker) onRaftMessage(msg *rspb.RaftMessage) error {
 ///
 /// return false to indicate that target peer is in invalid state or
 /// doesn't exist and can't be created.
+///如果目标peer不存在，请创建它。//////返回false以指示目标peer处于无效状态或不存在，无法创建。
 func (d *storeWorker) maybeCreatePeer(regionID uint64, msg *rspb.RaftMessage) (bool, error) {
 	// we may encounter a message with larger peer id, which means
 	// current peer is stale, then we should remove current peer
+	// //我们可能会遇到具有更大peer ID的消息，这意味着当前peer是陈旧的，然后我们应该删除当前peer
 	meta := d.ctx.storeMeta
 	meta.Lock()
 	defer meta.Unlock()
@@ -288,6 +292,7 @@ func (d *storeWorker) scheduleGCSnap(regionID uint64, keys []snap.SnapKeyWithSen
 		// The snapshot exists because MsgAppend has been rejected. So the
 		// peer must have been exist. But now it's disconnected, so the peer
 		// has to be destroyed instead of being created.
+		// //不存在快照，因为msgappend已被拒绝。因此peer必须存在。但现在它已断开连接，因此必须销毁peer而不是被创建。
 		log.Infof("region %d is disconnected, remove snaps %v", regionID, keys)
 		for _, pair := range keys {
 			key := pair.SnapKey

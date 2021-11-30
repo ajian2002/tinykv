@@ -44,11 +44,13 @@ func newStoreTicker(cfg *config.Config) *ticker {
 }
 
 // tickClock should be called when peerMsgHandler received tick message.
+// PeermSghandler收到tick message时应调用Tickclock。
 func (t *ticker) tickClock() {
 	t.tick++
 }
 
 // schedule arrange the next run for the PeerTick.
+//计划安排下一个运行的peertick。
 func (t *ticker) schedule(tp PeerTick) {
 	sched := &t.schedules[int(tp)]
 	if sched.interval <= 0 {
@@ -59,6 +61,7 @@ func (t *ticker) schedule(tp PeerTick) {
 }
 
 // isOnTick checks if the PeerTick should run.
+// 检查是否peerTick 应该run
 func (t *ticker) isOnTick(tp PeerTick) bool {
 	sched := &t.schedules[int(tp)]
 	return sched.runAt == t.tick

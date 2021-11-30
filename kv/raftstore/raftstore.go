@@ -29,6 +29,7 @@ type regionItem struct {
 }
 
 // Less returns true if the region start key is less than the other.
+//如果区域开始键小于另一个，则返回true。
 func (r *regionItem) Less(other btree.Item) bool {
 	left := r.region.GetStartKey()
 	right := other.(*regionItem).region.GetStartKey()
@@ -38,11 +39,12 @@ func (r *regionItem) Less(other btree.Item) bool {
 type storeMeta struct {
 	sync.RWMutex
 	/// region end key -> region ID
+	///区域结束键 - >区域ID
 	regionRanges *btree.BTree
 	/// region_id -> region
 	regions map[uint64]*metapb.Region
-	/// `MsgRequestVote` messages from newly split Regions shouldn't be dropped if there is no
-	/// such Region in this store now. So the messages are recorded temporarily and will be handled later.
+	/// `MsgRequestVote` messages from newly split Regions shouldn't be dropped if there is no such Region in this store now. So the messages are recorded temporarily and will be handled later.
+	///`Msgrequestvote`如果现在这家store没有这样的region，则不应丢弃来自新分裂区域的消息。因此，暂时记录消息，并将在以后进行处理。
 	pendingVotes []*rspb.RaftMessage
 }
 
@@ -59,10 +61,12 @@ func (m *storeMeta) setRegion(region *metapb.Region, peer *peer) {
 }
 
 // getOverlaps gets the regions which are overlapped with the specified region range.
+// // getoverlaps获取与指定区域范围重叠的区域。
 func (m *storeMeta) getOverlapRegions(region *metapb.Region) []*metapb.Region {
 	item := &regionItem{region: region}
 	var result *regionItem
 	// find is a helper function to find an item that contains the regions start key.
+	// 查找是一个帮助程序功能，用于查找包含区域启动键的项目。
 	m.regionRanges.DescendLessOrEqual(item, func(i btree.Item) bool {
 		result = i.(*regionItem)
 		return false
@@ -106,8 +110,11 @@ type Transport interface {
 
 /// loadPeers loads peers in this store. It scans the db engine, loads all regions and their peers from it
 /// WARN: This store should not be used before initialized.
+/// loadpeers在本store加载对等体。它扫描DB引擎，从IT中加载所有region和它们的peer
+/// 在初始化之前不应使用此store
 func (bs *Raftstore) loadPeers() ([]*peer, error) {
 	// Scan region meta to get saved regions.
+	// //扫描区域元保存区域。
 	startKey := meta.RegionMetaMinKey
 	endKey := meta.RegionMetaMaxKey
 	ctx := bs.ctx
@@ -122,6 +129,7 @@ func (bs *Raftstore) loadPeers() ([]*peer, error) {
 	raftWB := new(engine_util.WriteBatch)
 	err := kvEngine.View(func(txn *badger.Txn) error {
 		// get all regions from RegionLocalState
+		////从execateLocalstate获取所有region
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 		for it.Seek(startKey); it.Valid(); it.Next() {
@@ -159,8 +167,8 @@ func (bs *Raftstore) loadPeers() ([]*peer, error) {
 			}
 			ctx.storeMeta.regionRanges.ReplaceOrInsert(&regionItem{region: region})
 			ctx.storeMeta.regions[regionID] = region
-			// No need to check duplicated here, because we use region id as the key
-			// in DB.
+			// No need to check duplicated here, because we use region id as the key  in DB.
+			//无需检查此处重复，因为我们使用区域ID作为DB中的密钥。
 			regionPeers = append(regionPeers, peer)
 		}
 		return nil

@@ -60,7 +60,7 @@ type PeerStorage struct {
 }
 
 // NewPeerStorage get the persist raftState from engines and return a peer storage
-//NewPeerStorage 从引擎获取持久的 raftState 并返回对等存储
+// NewPeerStorage 从 engines 获取持久的 raftState 并返回peer storage
 func NewPeerStorage(engines *engine_util.Engines, region *metapb.Region, regionSched chan<- worker.Task, tag string) (*PeerStorage, error) {
 	log.Debugf("%s creating storage for %s", tag, region.String())
 	raftState, err := meta.InitRaftLocalState(engines.Raft, region)
@@ -122,6 +122,7 @@ func (ps *PeerStorage) Entries(low, high uint64) ([]eraftpb.Entry, error) {
 			return nil, err
 		}
 		// May meet gap or has been compacted.
+		//可以满足差距或已经被压缩。
 		if entry.Index != nextIndex {
 			break
 		}
@@ -129,10 +130,12 @@ func (ps *PeerStorage) Entries(low, high uint64) ([]eraftpb.Entry, error) {
 		buf = append(buf, entry)
 	}
 	// If we get the correct number of entries, returns.
+	//如果我们得到正确的entires数，返回。
 	if len(buf) == int(high-low) {
 		return buf, nil
 	}
 	// Here means we don't fetch enough entries.
+	//此处意味着我们不会获取足够的entries。
 	return nil, raft.ErrUnavailable
 }
 
@@ -197,6 +200,7 @@ func (ps *PeerStorage) Snapshot() (eraftpb.Snapshot, error) {
 		Receiver:  ch,
 	}
 	// schedule snapshot generate task
+	// 调度快照生成任务
 	ps.regionSched <- &runner.RegionTaskGen{
 		RegionId: ps.region.GetId(),
 		Notifier: ch,
@@ -265,6 +269,7 @@ func (ps *PeerStorage) clearMeta(kvWB, raftWB *engine_util.WriteBatch) error {
 }
 
 // Delete all data that is not covered by `new_region`.
+//删除`new_region`未涵盖的所有数据。
 func (ps *PeerStorage) clearExtraData(newRegion *metapb.Region) {
 	oldStartKey, oldEndKey := ps.region.GetStartKey(), ps.region.GetEndKey()
 	newStartKey, newEndKey := newRegion.GetStartKey(), newRegion.GetEndKey()
@@ -277,6 +282,7 @@ func (ps *PeerStorage) clearExtraData(newRegion *metapb.Region) {
 }
 
 // ClearMeta delete stale metadata like raftState, applyState, regionState and raft log entries
+// clearmeta删除roftstate，phamperstate，RegionState和Raft日志条目等陈旧元数据
 func ClearMeta(engines *engine_util.Engines, kvWB, raftWB *engine_util.WriteBatch, regionID uint64, lastIndex uint64) error {
 	start := time.Now()
 	kvWB.DeleteMeta(meta.RegionStateKey(regionID))
@@ -316,12 +322,14 @@ func ClearMeta(engines *engine_util.Engines, kvWB, raftWB *engine_util.WriteBatc
 
 // Append the given entries to the raft log and update ps.raftState also delete log entries that will
 // never be committed
+// 将给定的条目附加到 raft 日志并更新 ps.raftState 还会删除永远不会提交的日志条目
 func (ps *PeerStorage) Append(entries []eraftpb.Entry, raftWB *engine_util.WriteBatch) error {
 	// Your Code Here (2B).
 	return nil
 }
 
 // Apply the peer with given snapshot
+//使用给定快照应用peer
 func (ps *PeerStorage) ApplySnapshot(snapshot *eraftpb.Snapshot, kvWB *engine_util.WriteBatch, raftWB *engine_util.WriteBatch) (*ApplySnapResult, error) {
 	log.Infof("%v begin to apply snapshot", ps.Tag)
 	snapData := new(rspb.RaftSnapshotData)
@@ -333,15 +341,17 @@ func (ps *PeerStorage) ApplySnapshot(snapshot *eraftpb.Snapshot, kvWB *engine_ut
 	// and send RegionTaskApply task to region worker through ps.regionSched, also remember call ps.clearMeta
 	// and ps.clearExtraData to delete stale data
 	// Your Code Here (2C).
+	//提示：需要执行以下操作：更新像roaftstate和phamperstate等的peer存储状态，然后通过ps.regionsched向 region worker发送regiontaskappply任务，也记住呼叫ps.clearmeta 和ps.clearextradata删除陈旧数据
 	return nil, nil
 }
 
 // Save memory states to disk.
 // Do not modify ready in this function, this is a requirement to advance the ready object properly later.
-//将内存状态保存到磁盘。 不要在这个函数中修改ready，这是以后正确推进ready对象的要求。
+// 将内存状态保存到磁盘。 不要在这个函数中修改ready，这是以后正确推进ready对象的要求。
 func (ps *PeerStorage) SaveReadyState(ready *raft.Ready) (*ApplySnapResult, error) {
 	// Hint: you may call `Append()` and `ApplySnapshot()` in this function
 	// Your Code Here (2B/2C).
+	//提示：您可以在此功能中调用“Append（）`和`applysnapshot（）`
 	return nil, nil
 }
 
